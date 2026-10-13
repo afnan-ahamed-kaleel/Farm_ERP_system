@@ -1,0 +1,332 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Location {
+  id       String     @id @default(uuid())
+  name     String
+  type     String // E.g., 'FARM', 'HOUSE', 'CAGE'
+  parentId String?
+  parent   Location?  @relation("LocationHierarchy", fields: [parentId], references: [id])
+  children Location[] @relation("LocationHierarchy")
+
+  sourceMovements BirdMovement[]   @relation("SourceMovements")
+  targetMovements BirdMovement[]   @relation("TargetMovements")
+  mortalities     DailyMortality[]
+
+  fromTransactions StockTransaction[] @relation("FromLocation")
+  toTransactions   StockTransaction[] @relation("ToLocation")
+
+  feedConsumptions  FeedConsumption[]  @relation("HouseConsumption")
+  eggProductionLogs EggProductionLog[] @relation("EggLocation")
+
+  createdAt DateTime @default(now())
+}
+
+model Flock {
+  id          String   @id @default(uuid())
+  batchNumber String   @unique
+  hatchDate   DateTime
+  breed       String
+
+  movements         BirdMovement[]
+  mortalities       DailyMortality[]
+  feedConsumptions  FeedConsumption[]
+  eggProductionLogs EggProductionLog[] @relation("EggProduction")
+
+  createdAt DateTime @default(now())
+}
+
+enum MovementStatus {
+  DRAFT
+  SUBMITTED
+  APPROVED
+  POSTED
+  REJECTED
+}
+
+enum BirdPathway {
+  INTAKE
+  BROODER_TO_GROWER
+  GROWER_TO_LAYER
+  BROODER_TO_DEEPLITTER
+}
+
+model BirdMovement {
+  id               String         @id @default(uuid())
+  date             DateTime
+  flockId          String
+  flock            Flock          @relation(fields: [flockId], references: [id])
+  sourceLocationId String
+  sourceLocation   Location       @relation("SourceMovements", fields: [sourceLocationId], references: [id])
+  targetLocationId String
+  targetLocation   Location       @relation("TargetMovements", fields: [targetLocationId], references: [id])
+  pathway          BirdPathway
+  quantity         Int
+  status           MovementStatus @default(DRAFT)
+  createdBy        String
+  approvedBy       String?
+  postedAt         DateTime?
+  createdAt        DateTime       @default(now())
+}
+
+model DailyMortality {
+  id             String   @id @default(uuid())
+  date           DateTime
+  flockId        String
+  flock          Flock    @relation(fields: [flockId], references: [id])
+  locationId     String
+  location       Location @relation(fields: [locationId], references: [id])
+  mortalityCount Int      @default(0)
+  cullingCount   Int      @default(0)
+  cause          String
+  remarks        String?
+  operatorId     String
+  createdAt      DateTime @default(now())
+}
+
+enum ItemCategory {
+  RAW_MATERIAL
+  FEED
+  EGG
+  PACKAGING
+  OTHER
+}
+
+enum TransactionType {
+  PURCHASE
+  PRODUCTION
+  ISSUE
+  CONSUMPTION
+  TRANSFER
+  DISPATCH
+  ADJUSTMENT
+}
+
+enum LedgerStatus {
+  DRAFT
+  POSTED
+  REVERSED
+}
+
+model Item {
+  id         String       @id @default(uuid())
+  code       String       @unique
+  name       String
+  category   ItemCategory
+  primaryUom String
+  createdAt  DateTime     @default(now())
+
+  batches                    Batch[]
+  transactions               StockTransaction[]
+  formulaIngredients         FormulaIngredient[]
+  productionIngredientUsages FeedProductionIngredientUsage[] @relation("IngredientItem")
+}
+
+model Batch {
+  id              String    @id @default(uuid())
+  batchNumber     String    @unique
+  itemId          String
+  item            Item      @relation(fields: [itemId], references: [id])
+  manufactureDate DateTime?
+  expiryDate      DateTime?
+  createdAt       DateTime  @default(now())
+
+  transactions      StockTransaction[]
+  productionRun     FeedProductionRun?              @relation("ProducedBatch")
+  ingredientUsages  FeedProductionIngredientUsage[] @relation("IngredientBatch")
+  consumptions      FeedConsumption[]               @relation("ConsumedBatch")
+  eggProductionLogs EggProductionLog[]              @relation("ProducedEggBatch")
+  dispatchRecords   DispatchRecord[]                @relation("DispatchedEggBatch")
+}
+
+model StockTransaction {
+  id              String          @id @default(uuid())
+  date            DateTime
+  itemId          String
+  item            Item            @relation(fields: [itemId], references: [id])
+  batchId         String?
+  batch           Batch?          @relation(fields: [batchId], references: [id])
+  fromLocationId  String?
+  fromLocation    Location?       @relation("FromLocation", fields: [fromLocationId], references: [id])
+  toLocationId    String?
+  toLocation      Location?       @relation("ToLocation", fields: [toLocationId], references: [id])
+  quantity        Float
+  uom             String
+  transactionType TransactionType
+  status          LedgerStatus    @default(DRAFT)
+  referenceId     String?
+  createdBy       String
+  approvedBy      String?
+  createdAt       DateTime        @default(now())
+}
+
+enum FormulaStage {
+  GROWER
+  LAYER
+}
+
+model FeedFormula {
+  id          String               @id @default(uuid())
+  code        String               @unique
+  name        String
+  targetStage FormulaStage
+  isActive    Boolean              @default(true)
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
+  versions    FeedFormulaVersion[]
+}
+
+model FeedFormulaVersion {
+  id             String              @id @default(uuid())
+  formulaId      String
+  formula        FeedFormula         @relation(fields: [formulaId], references: [id])
+  versionNumber  Int
+  baseQuantityKg Float               @default(1000.0)
+  effectiveDate  DateTime
+  isLocked       Boolean             @default(false)
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+  ingredients    FormulaIngredient[]
+  productionRuns FeedProductionRun[]
+}
+
+model FormulaIngredient {
+  id                  String             @id @default(uuid())
+  versionId           String
+  version             FeedFormulaVersion @relation(fields: [versionId], references: [id])
+  rawMaterialItemId   String
+  rawMaterialItem     Item               @relation(fields: [rawMaterialItemId], references: [id])
+  inclusionKg         Float
+  inclusionPercentage Float
+}
+
+enum ProductionStatus {
+  DRAFT
+  COMPLETED
+}
+
+model FeedProductionRun {
+  id               String                          @id @default(uuid())
+  productionNumber String                          @unique
+  date             DateTime
+  formulaVersionId String
+  formulaVersion   FeedFormulaVersion              @relation(fields: [formulaVersionId], references: [id])
+  producedBatchId  String                          @unique
+  producedBatch    Batch                           @relation("ProducedBatch", fields: [producedBatchId], references: [id])
+  outputQuantityKg Float
+  status           ProductionStatus                @default(DRAFT)
+  operatorId       String
+  createdAt        DateTime                        @default(now())
+  updatedAt        DateTime                        @updatedAt
+  ingredientUsages FeedProductionIngredientUsage[]
+}
+
+model FeedProductionIngredientUsage {
+  id                 String            @id @default(uuid())
+  productionRunId    String
+  productionRun      FeedProductionRun @relation(fields: [productionRunId], references: [id])
+  rawMaterialBatchId String
+  rawMaterialBatch   Batch             @relation("IngredientBatch", fields: [rawMaterialBatchId], references: [id])
+  rawMaterialItemId  String
+  rawMaterialItem    Item              @relation("IngredientItem", fields: [rawMaterialItemId], references: [id])
+  quantityUsedKg     Float
+}
+
+model FeedConsumption {
+  id                 String   @id @default(uuid())
+  date               DateTime
+  flockId            String
+  flock              Flock    @relation(fields: [flockId], references: [id])
+  houseLocationId    String
+  houseLocation      Location @relation("HouseConsumption", fields: [houseLocationId], references: [id])
+  feedBatchId        String
+  feedBatch          Batch    @relation("ConsumedBatch", fields: [feedBatchId], references: [id])
+  quantityConsumedKg Float
+  operatorId         String
+  createdAt          DateTime @default(now())
+}
+
+enum EggGrade {
+  JUMBO
+  XL
+  LARGE
+  MEDIUM
+  SMALL
+  PULLET
+}
+
+enum EggCondition {
+  GOOD
+  DIRTY
+  DAMAGE
+  REJECTION
+}
+
+model EggProductionLog {
+  id              String       @id @default(uuid())
+  date            DateTime
+  flockId         String
+  flock           Flock        @relation("EggProduction", fields: [flockId], references: [id])
+  houseLocationId String
+  houseLocation   Location     @relation("EggLocation", fields: [houseLocationId], references: [id])
+  eggBatchId      String
+  eggBatch        Batch        @relation("ProducedEggBatch", fields: [eggBatchId], references: [id])
+  grade           EggGrade
+  condition       EggCondition
+  quantity        Int
+  recordedBy      String
+  createdAt       DateTime     @default(now())
+}
+
+model Customer {
+  id            String           @id @default(uuid())
+  name          String
+  contactNumber String?
+  address       String?
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+  dispatches    DispatchRecord[]
+}
+
+model Supplier {
+  id            String   @id @default(uuid())
+  name          String
+  type          String   @default("HATCHERY") // HATCHERY, FEED_INGREDIENT, PACKAGING, GENERAL
+  contactNumber String?
+  address       String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model OperationalReason {
+  id          String   @id @default(uuid())
+  category    String   // MORTALITY_CAUSE, CULLING_REASON, REJECTION_REASON
+  code        String   @unique
+  name        String
+  description String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model DispatchRecord {
+  id             String   @id @default(uuid())
+  dispatchNumber String   @unique
+  date           DateTime
+  customerId     String
+  customer       Customer @relation(fields: [customerId], references: [id])
+  eggBatchId     String
+  eggBatch       Batch    @relation("DispatchedEggBatch", fields: [eggBatchId], references: [id])
+  grade          EggGrade
+  quantity       Int
+  invoiceNumber  String?
+  dispatchedBy   String
+  createdAt      DateTime @default(now())
+}
+

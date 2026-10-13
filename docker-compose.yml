@@ -1,0 +1,17 @@
+version: '3.8'
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: ruhunu_erp_postgres
+    environment:
+      POSTGRES_USER: ruhunu
+      POSTGRES_PASSWORD: password123
+      POSTGRES_DB: ruhunuerp
+    ports:
+      - "54320:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    restart: unless-stopped
+
+volumes:
+  pgdata:
