@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "60fps-design": {
+      "command": "cmd.exe",
+      "args": [
+        "/c",
+        "npx",
+        "-y",
+        "mcp-remote",
+        "https://mcp.60fps.design/mcp"
+      ]
+    }
+  }
+}

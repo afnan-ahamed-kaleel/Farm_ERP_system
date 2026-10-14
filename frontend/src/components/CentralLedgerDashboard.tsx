@@ -1,101 +1,547 @@
+import React, { useState, useEffect, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import axios from 'axios';
-import { PackageOpen } from 'lucide-react';
+import { 
+  PackageOpen, 
+  Bird, 
+  Wheat, 
+  Egg, 
+  Boxes, 
+  Search, 
+  X, 
+  RefreshCw, 
+  Layers 
+} from 'lucide-react';
 
-const API_BASE = 'http://localhost:3000/api/v1/inventory';
+const API_INVENTORY = 'http://localhost:3000/api/v1/inventory';
+const API_BIRDS = 'http://localhost:3000/api/v1/bird-tracking';
 
-export default function CentralLedgerDashboard() {
-  const { data: balances = [], isLoading } = useQuery({
-    queryKey: ['inventory-balance'],
-    queryFn: async () => (await axios.get(`${API_BASE}/balance`)).data,
-  });
+// 60fps High-Performance Spring Counter Hook
+function useSpringCounter(targetValue: number, duration: number = 800) {
+  const [displayValue, setDisplayValue] = useState(0);
+  const startValueRef = useRef(0);
+  const startTimeRef = useRef<number | null>(null);
+  const targetRef = useRef(targetValue);
+
+  useEffect(() => {
+    startValueRef.current = displayValue;
+    targetRef.current = targetValue;
+    startTimeRef.current = null;
+
+    let animationFrameId: number;
+
+    const animate = (timestamp: number) => {
+      if (!startTimeRef.current) startTimeRef.current = timestamp;
+      const elapsed = timestamp - startTimeRef.current;
+      const progress = Math.min(elapsed / duration, 1);
+
+      // 60fps cubic spring easing
+      const ease = 1 - Math.pow(1 - progress, 3);
+      const current = Math.round(startValueRef.current + (targetRef.current - startValueRef.current) * ease);
+
+      setDisplayValue(current);
+
+      if (progress < 1) {
+        animationFrameId = requestAnimationFrame(animate);
+      } else {
+        setDisplayValue(targetRef.current);
+      }
+    };
+
+    animationFrameId = requestAnimationFrame(animate);
+    return () => cancelAnimationFrame(animationFrameId);
+  }, [targetValue, duration]);
+
+  return displayValue;
+}
+
+// 60fps Interactive Spotlight KPI Card Component
+function KpiCard({ 
+  title, 
+  value, 
+  unit = '', 
+  subtitle, 
+  badge, 
+  icon: Icon, 
+  accentColor, 
+  iconBg, 
+  iconColor,
+  isActive = false,
+  onClick 
+}: any) {
+  const animatedValue = useSpringCounter(value);
+  const cardRef = useRef<HTMLDivElement>(null);
+  const [mousePos, setMousePos] = useState({ x: 0, y: 0, isHovered: false });
+
+  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!cardRef.current) return;
+    const rect = cardRef.current.getBoundingClientRect();
+    setMousePos({
+      x: e.clientX - rect.left,
+      y: e.clientY - rect.top,
+      isHovered: true,
+    });
+  };
+
+  const handleMouseLeave = () => {
+    setMousePos(prev => ({ ...prev, isHovered: false }));
+  };
 
   return (
-    <div className="max-w-6xl mx-auto space-y-3 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <div className="relative overflow-hidden rounded-xl bg-slate-900 p-4 sm:p-6 text-white shadow-xl">
-        <div className="pointer-events-none absolute -right-16 -top-16 h-40 w-40 rounded-full bg-blue-500/20 blur-3xl" />
-        <div className="flex items-center space-x-3 sm:space-x-4 relative z-10">
-          <div className="flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center rounded-xl bg-blue-500 text-white shadow-lg shadow-blue-500/30 shrink-0">
-            <PackageOpen size={22} className="sm:w-6 sm:h-6" />
+    <div
+      ref={cardRef}
+      onMouseMove={handleMouseMove}
+      onMouseLeave={handleMouseLeave}
+      onClick={onClick}
+      className={`group relative overflow-hidden rounded-2xl bg-white p-4 sm:p-5 shadow-xs transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] hover:-translate-y-1 hover:shadow-xl active:scale-[0.985] cursor-pointer select-none border ${
+        isActive 
+          ? 'border-indigo-500 ring-2 ring-indigo-500/20 shadow-md' 
+          : 'border-slate-200/90 hover:border-slate-300'
+      }`}
+    >
+      {/* 60fps Spotlight Radial Glow Layer */}
+      <div
+        className="pointer-events-none absolute -inset-px rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+        style={{
+          background: mousePos.isHovered
+            ? `radial-gradient(320px circle at ${mousePos.x}px ${mousePos.y}px, ${accentColor}, transparent 80%)`
+            : 'none',
+        }}
+      />
+
+      <div className="relative z-10 flex items-start justify-between gap-3">
+        <div>
+          <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">{title}</span>
+          <div className="mt-1 flex items-baseline gap-1.5">
+            <span className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight tabular-nums font-mono">
+              {animatedValue.toLocaleString()}
+            </span>
+            {unit && <span className="text-xs sm:text-sm font-bold text-slate-500">{unit}</span>}
           </div>
-          <div>
-            <h1 className="text-lg sm:text-xl font-bold tracking-tight">Central Stock Ledger</h1>
-            <p className="text-xs font-medium text-slate-400 mt-0.5">Real-time dynamic inventory balances</p>
+        </div>
+
+        <div className={`w-11 h-11 rounded-xl ${iconBg} ${iconColor} flex items-center justify-center shadow-md transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-110 group-hover:rotate-3 shrink-0`}>
+          <Icon size={22} />
+        </div>
+      </div>
+
+      <div className="relative z-10 mt-3 pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
+        <span className="text-slate-500 font-medium truncate max-w-[160px]">{subtitle}</span>
+        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${badge.bg} ${badge.text}`}>
+          {badge.label}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+export default function CentralLedgerDashboard() {
+  const [selectedCategory, setSelectedCategory] = useState<string>('ALL');
+  const [searchTerm, setSearchTerm] = useState('');
+
+  // 1. Inventory Balances Query
+  const { data: balances = [], isLoading: loadingBalances, refetch: refetchBalances, isFetching: isFetchingBalances } = useQuery({
+    queryKey: ['inventory-balance'],
+    queryFn: async () => (await axios.get(`${API_INVENTORY}/balance`)).data,
+  });
+
+  // 2. Bird Tracking Dashboard Stats Query
+  const { data: birdStats = { totalLiveBirds: 0, todayMortality: 0, activeFlocks: 0 }, refetch: refetchBirds, isFetching: isFetchingBirds } = useQuery({
+    queryKey: ['bird-dashboard-stats'],
+    queryFn: async () => (await axios.get(`${API_BIRDS}/stats/dashboard`)).data,
+  });
+
+  const handleRefreshAll = () => {
+    refetchBalances();
+    refetchBirds();
+  };
+
+  const isRefreshing = isFetchingBalances || isFetchingBirds;
+
+  // Category Totals Computation
+  const feedTotal = balances
+    .filter((b: any) => b.item.category === 'FEED')
+    .reduce((acc: number, b: any) => acc + (b.totalBalance || 0), 0);
+
+  const eggTotal = balances
+    .filter((b: any) => b.item.category === 'EGG')
+    .reduce((acc: number, b: any) => acc + (b.totalBalance || 0), 0);
+
+  const rawTotal = balances
+    .filter((b: any) => b.item.category === 'RAW_MATERIAL')
+    .reduce((acc: number, b: any) => acc + (b.totalBalance || 0), 0);
+
+  // Category Counts
+  const feedCount = balances.filter((b: any) => b.item.category === 'FEED').length;
+  const eggCount = balances.filter((b: any) => b.item.category === 'EGG').length;
+  const rawCount = balances.filter((b: any) => b.item.category === 'RAW_MATERIAL').length;
+  const packCount = balances.filter((b: any) => b.item.category === 'PACKAGING').length;
+
+  // Filtered List
+  const filteredBalances = balances.filter((b: any) => {
+    const matchesCategory = selectedCategory === 'ALL' || b.item.category === selectedCategory;
+    const matchesSearch = 
+      (b.item.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (b.item.code || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (b.item.category || '').toLowerCase().includes(searchTerm.toLowerCase());
+    return matchesCategory && matchesSearch;
+  });
+
+  const getCategoryBadgeClass = (category: string) => {
+    switch (category) {
+      case 'FEED': return 'bg-amber-100 text-amber-800 border-amber-200';
+      case 'EGG': return 'bg-purple-100 text-purple-800 border-purple-200';
+      case 'RAW_MATERIAL': return 'bg-blue-100 text-blue-800 border-blue-200';
+      case 'PACKAGING': return 'bg-slate-100 text-slate-700 border-slate-200';
+      default: return 'bg-emerald-100 text-emerald-800 border-emerald-200';
+    }
+  };
+
+  const getStockStatus = (balance: number) => {
+    if (balance > 1000) return { label: 'Optimal Stock', bg: 'bg-emerald-50 text-emerald-700 border-emerald-200' };
+    if (balance > 0) return { label: 'Normal', bg: 'bg-blue-50 text-blue-700 border-blue-200' };
+    return { label: 'Zero Stock', bg: 'bg-rose-50 text-rose-700 border-rose-200' };
+  };
+
+  return (
+    <div className="max-w-7xl mx-auto space-y-4 pb-12 animate-in fade-in duration-300">
+      {/* 1. Header Banner */}
+      <div className="relative overflow-hidden rounded-xl bg-gradient-to-r from-slate-900 via-slate-800 to-indigo-950 px-4 py-3 sm:px-5 sm:py-3.5 text-white shadow-md border border-slate-700/50">
+        <div className="pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full bg-indigo-500/10 blur-3xl" />
+        
+        <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-lg bg-indigo-500/20 border border-indigo-500/30 text-indigo-400 flex items-center justify-center shrink-0">
+              <PackageOpen size={17} />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h1 className="text-base sm:text-lg font-bold tracking-tight">Central Stock & Operational Ledger</h1>
+                <span className="hidden md:inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+                  Telemetry Active
+                </span>
+              </div>
+              <p className="text-xs text-slate-400 hidden sm:block">
+                Real-time inventory balances, live flock populations, and feed silo levels
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 self-end sm:self-auto shrink-0">
+            <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-800/80 border border-slate-700/60 text-[11px] font-medium text-slate-300">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+              <span>Live Ledger Stream</span>
+            </div>
+            <button
+              onClick={handleRefreshAll}
+              className="p-1.5 sm:p-2 rounded-lg bg-slate-800/90 hover:bg-slate-700 border border-slate-600/50 text-slate-300 hover:text-white transition-all shadow-sm cursor-pointer"
+              title="Refresh All Ledger Balances"
+            >
+              <RefreshCw size={15} className={isRefreshing ? 'animate-spin text-indigo-400' : ''} />
+            </button>
           </div>
         </div>
       </div>
 
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-        <div className="p-3.5 sm:p-4 border-b border-slate-200 flex justify-between items-center bg-slate-50">
-          <h2 className="font-bold text-slate-700 text-sm sm:text-base">All Items</h2>
-          <span className="text-xs font-semibold text-slate-400">{balances.length} items registered</span>
+      {/* 2. 60fps Interactive Spotlight KPI Grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+        {/* Card 1: Total Live Birds Population */}
+        <KpiCard
+          title="Live Bird Population"
+          value={birdStats.totalLiveBirds}
+          unit="Birds"
+          subtitle={`${birdStats.activeFlocks} Active Flocks in Sheds`}
+          badge={{ label: 'Live Telemetry', bg: 'bg-emerald-100', text: 'text-emerald-700' }}
+          icon={Bird}
+          iconBg="bg-emerald-500"
+          iconColor="text-white"
+          accentColor="rgba(16, 185, 129, 0.14)"
+          onClick={() => setSelectedCategory('ALL')}
+        />
+
+        {/* Card 2: Finished Feed in Silos */}
+        <KpiCard
+          title="Finished Feed Stock"
+          value={feedTotal}
+          unit="KG"
+          subtitle={`${feedCount} Finished Formula Rations`}
+          badge={{ label: 'In Silos & Stores', bg: 'bg-amber-100', text: 'text-amber-800' }}
+          icon={Wheat}
+          iconBg="bg-amber-500"
+          iconColor="text-white"
+          accentColor="rgba(245, 158, 11, 0.14)"
+          isActive={selectedCategory === 'FEED'}
+          onClick={() => setSelectedCategory(selectedCategory === 'FEED' ? 'ALL' : 'FEED')}
+        />
+
+        {/* Card 3: Fresh Egg Stock */}
+        <KpiCard
+          title="Fresh Egg Inventory"
+          value={eggTotal}
+          unit="Units"
+          subtitle={`${eggCount} Egg Quality Grades`}
+          badge={{ label: 'Ready for Dispatch', bg: 'bg-purple-100', text: 'text-purple-800' }}
+          icon={Egg}
+          iconBg="bg-purple-600"
+          iconColor="text-white"
+          accentColor="rgba(147, 51, 234, 0.14)"
+          isActive={selectedCategory === 'EGG'}
+          onClick={() => setSelectedCategory(selectedCategory === 'EGG' ? 'ALL' : 'EGG')}
+        />
+
+        {/* Card 4: Raw Material Stock */}
+        <KpiCard
+          title="Raw Materials Stock"
+          value={rawTotal}
+          unit="KG"
+          subtitle={`${rawCount} Milling Ingredients`}
+          badge={{ label: 'Production Inflow', bg: 'bg-blue-100', text: 'text-blue-800' }}
+          icon={Boxes}
+          iconBg="bg-blue-600"
+          iconColor="text-white"
+          accentColor="rgba(37, 99, 235, 0.14)"
+          isActive={selectedCategory === 'RAW_MATERIAL'}
+          onClick={() => setSelectedCategory(selectedCategory === 'RAW_MATERIAL' ? 'ALL' : 'RAW_MATERIAL')}
+        />
+      </div>
+
+      {/* 3. Category Filter Strip with 60fps Active Indicator */}
+      <div className="bg-white rounded-xl shadow-xs border border-slate-200/90 p-2 sm:p-2.5 flex flex-wrap items-center justify-between gap-2">
+        <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+          <span className="text-xs font-bold text-slate-500 uppercase tracking-wider px-2 hidden sm:inline-block">Filter:</span>
+          {[
+            { id: 'ALL', label: 'All Items', count: balances.length },
+            { id: 'FEED', label: 'Finished Feed', count: feedCount },
+            { id: 'RAW_MATERIAL', label: 'Raw Materials', count: rawCount },
+            { id: 'EGG', label: 'Eggs', count: eggCount },
+            { id: 'PACKAGING', label: 'Packaging', count: packCount },
+          ].map((tab) => {
+            const isActive = selectedCategory === tab.id;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setSelectedCategory(tab.id)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-200 cursor-pointer ${
+                  isActive
+                    ? 'bg-indigo-600 text-white shadow-sm font-bold'
+                    : 'bg-slate-50 hover:bg-slate-100 text-slate-600 border border-slate-200/80'
+                }`}
+              >
+                <span>{tab.label}</span>
+                <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
+                  isActive ? 'bg-indigo-700/80 text-white' : 'bg-slate-200 text-slate-600'
+                }`}>
+                  {tab.count}
+                </span>
+              </button>
+            );
+          })}
         </div>
 
-        {/* Mobile View: Cards / Slots (hidden on md and above) */}
+        {selectedCategory !== 'ALL' && (
+          <button
+            onClick={() => setSelectedCategory('ALL')}
+            className="text-xs font-semibold text-indigo-600 hover:text-indigo-700 px-2 cursor-pointer"
+          >
+            Reset filter
+          </button>
+        )}
+      </div>
+
+      {/* 4. Dataset Table Container */}
+      <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex flex-col">
+        {/* Dataset Table Toolbar */}
+        <div className="px-4 py-3 bg-white border-b border-slate-200 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-2.5">
+            <div className="flex items-center gap-2">
+              <Layers size={17} className="text-indigo-600" />
+              <h2 className="text-sm sm:text-base font-bold text-slate-800">
+                {selectedCategory === 'ALL' ? 'Complete Inventory' : `${selectedCategory} Inventory`} Dataset
+              </h2>
+            </div>
+            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-600 border border-slate-200">
+              {filteredBalances.length} of {balances.length} items
+            </span>
+          </div>
+
+          {/* Integrated Search Box in Dataset Header */}
+          <div className="flex items-center gap-2">
+            <div className="relative w-full sm:w-64">
+              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+              <input
+                type="text"
+                placeholder="Search code, name, category..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-8.5 pr-8 py-1.5 text-xs sm:text-sm bg-slate-50 hover:bg-slate-100/60 focus:bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 font-medium text-slate-800 transition-all placeholder:text-slate-400"
+              />
+              {searchTerm && (
+                <button
+                  onClick={() => setSearchTerm('')}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5 rounded cursor-pointer"
+                  title="Clear search"
+                >
+                  <X size={14} />
+                </button>
+              )}
+            </div>
+
+            <button
+              onClick={handleRefreshAll}
+              className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50/50 transition-colors shrink-0 cursor-pointer"
+              title="Refresh ledger table"
+            >
+              <RefreshCw size={14} className={isRefreshing ? 'animate-spin' : ''} />
+            </button>
+          </div>
+        </div>
+
+        {/* Mobile View: High-Density Slots */}
         <div className="block md:hidden p-3 space-y-2.5">
-          {isLoading ? (
-            <div className="p-6 text-center text-slate-400 text-sm font-semibold">Loading dynamic balances...</div>
-          ) : balances.length === 0 ? (
-            <div className="p-6 text-center text-slate-400 text-sm font-semibold">No stock found in the ledger.</div>
+          {loadingBalances ? (
+            <div className="p-8 text-center text-slate-400 text-sm font-semibold animate-pulse">
+              Loading dynamic balances...
+            </div>
+          ) : filteredBalances.length === 0 ? (
+            <div className="p-8 text-center text-slate-400 text-sm">
+              {searchTerm ? (
+                <div>
+                  <p className="font-semibold text-slate-600">No items matching "{searchTerm}" found.</p>
+                  <button onClick={() => setSearchTerm('')} className="mt-1.5 text-xs font-bold text-indigo-600 underline">
+                    Clear search
+                  </button>
+                </div>
+              ) : (
+                <p>No stock records found in the ledger.</p>
+              )}
+            </div>
           ) : (
-            balances.map((b: any) => (
-              <div key={b.item.id} className="p-3 rounded-xl border border-slate-200/90 bg-slate-50/50 shadow-xs flex items-center justify-between gap-3">
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
-                    <span className="font-mono text-[10px] font-bold text-slate-400 bg-white px-1.5 py-0.5 rounded border border-slate-200">
-                      {b.item.code}
-                    </span>
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-700">
-                      {b.item.category}
-                    </span>
+            filteredBalances.map((b: any) => {
+              const status = getStockStatus(b.totalBalance);
+              return (
+                <div 
+                  key={b.item.id} 
+                  className="p-3 rounded-xl border border-slate-200/90 bg-slate-50/60 shadow-xs flex items-center justify-between gap-3 hover:bg-slate-50 transition-colors"
+                >
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-1.5">
+                      <span className="font-mono text-[10px] font-bold text-slate-500 bg-white px-1.5 py-0.5 rounded border border-slate-200">
+                        {b.item.code}
+                      </span>
+                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${getCategoryBadgeClass(b.item.category)}`}>
+                        {b.item.category}
+                      </span>
+                    </div>
+                    <p className="mt-1 font-bold text-slate-800 text-sm truncate">{b.item.name}</p>
                   </div>
-                  <p className="mt-1 font-bold text-slate-800 text-sm truncate">{b.item.name}</p>
+                  <div className="text-right shrink-0">
+                    <span className={`px-1.5 py-0.2 rounded text-[10px] font-bold border ${status.bg}`}>
+                      {status.label}
+                    </span>
+                    <p className="mt-0.5 text-sm font-black text-slate-900 tabular-nums">
+                      {b.totalBalance.toLocaleString()} <span className="text-xs font-bold text-slate-500">{b.item.primaryUom}</span>
+                    </p>
+                  </div>
                 </div>
-                <div className="text-right shrink-0">
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Balance</p>
-                  <p className="text-sm font-black text-slate-900 tabular-nums">
-                    {b.totalBalance.toLocaleString()} <span className="text-xs font-bold text-slate-500">{b.item.primaryUom}</span>
-                  </p>
-                </div>
-              </div>
-            ))
+              );
+            })
           )}
         </div>
 
-        {/* Desktop View: Full Table (hidden on mobile, visible md and above) */}
+        {/* Desktop View: Full Dataset Table */}
         <div className="hidden md:block overflow-x-auto">
           <table className="w-full text-left text-sm">
-            <thead className="bg-slate-100 text-slate-500 font-semibold text-xs sm:text-sm">
+            <thead className="bg-slate-50 text-slate-600 font-bold border-b border-slate-200 text-xs uppercase tracking-wider">
               <tr>
-                <th className="px-6 py-2.5 sm:py-2 border-b border-slate-200">Item Code</th>
-                <th className="px-6 py-2.5 sm:py-2 border-b border-slate-200">Item Name</th>
-                <th className="px-6 py-2.5 sm:py-2 border-b border-slate-200">Category</th>
-                <th className="px-6 py-2.5 sm:py-2 border-b border-slate-200 text-right">Calculated Balance</th>
+                <th className="py-2.5 px-6">Item Code</th>
+                <th className="py-2.5 px-6">Item Catalog Name</th>
+                <th className="py-2.5 px-6">Category</th>
+                <th className="py-2.5 px-6">Stock Status</th>
+                <th className="py-2.5 px-6 text-right">Calculated Balance</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {isLoading ? (
-                <tr><td colSpan={4} className="p-6 text-center text-slate-500">Loading dynamic balances...</td></tr>
-              ) : balances.length === 0 ? (
-                <tr><td colSpan={4} className="p-6 text-center text-slate-500">No stock found in the ledger.</td></tr>
+              {loadingBalances ? (
+                <tr>
+                  <td colSpan={5} className="py-12 text-center text-slate-400 font-medium">
+                    <div className="flex items-center justify-center gap-2">
+                      <RefreshCw size={16} className="animate-spin text-indigo-600" />
+                      <span>Loading dynamic ledger balances...</span>
+                    </div>
+                  </td>
+                </tr>
+              ) : filteredBalances.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="py-12 text-center text-slate-400">
+                    {searchTerm ? (
+                      <div className="flex flex-col items-center justify-center space-y-1.5">
+                        <p className="text-slate-600 font-medium text-sm">
+                          No items matching "<span className="text-slate-800 font-bold">{searchTerm}</span>" found.
+                        </p>
+                        <button
+                          onClick={() => setSearchTerm('')}
+                          className="text-xs text-indigo-600 hover:text-indigo-700 font-bold underline cursor-pointer"
+                        >
+                          Clear search filter
+                        </button>
+                      </div>
+                    ) : (
+                      <p className="text-sm">No stock items found in this category.</p>
+                    )}
+                  </td>
+                </tr>
               ) : (
-                balances.map((b: any) => (
-                  <tr key={b.item.id} className="hover:bg-slate-50 transition-colors">
-                    <td className="px-6 py-2.5 sm:py-2 font-mono text-xs text-slate-500">{b.item.code}</td>
-                    <td className="px-6 py-2.5 sm:py-2 font-bold text-slate-800 text-sm">{b.item.name}</td>
-                    <td className="px-6 py-2.5 sm:py-2">
-                      <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-blue-100 text-blue-700 whitespace-nowrap">
-                        {b.item.category}
-                      </span>
-                    </td>
-                    <td className="px-6 py-2.5 sm:py-2 font-black text-slate-900 text-right tabular-nums text-sm whitespace-nowrap">
-                      {b.totalBalance.toLocaleString()} {b.item.primaryUom}
-                    </td>
-                  </tr>
-                ))
+                filteredBalances.map((b: any) => {
+                  const status = getStockStatus(b.totalBalance);
+                  return (
+                    <tr 
+                      key={b.item.id} 
+                      className="hover:bg-slate-50/80 transition-colors duration-150"
+                    >
+                      <td className="py-3 px-6 font-mono text-xs font-bold text-indigo-700">
+                        {b.item.code}
+                      </td>
+                      <td className="py-3 px-6 font-bold text-slate-800 text-sm">
+                        {b.item.name}
+                      </td>
+                      <td className="py-3 px-6">
+                        <span className={`px-2.5 py-0.5 rounded-md text-xs font-bold border ${getCategoryBadgeClass(b.item.category)}`}>
+                          {b.item.category}
+                        </span>
+                      </td>
+                      <td className="py-3 px-6">
+                        <span className={`px-2 py-0.5 rounded-md text-xs font-bold border ${status.bg}`}>
+                          {status.label}
+                        </span>
+                      </td>
+                      <td className="py-3 px-6 font-black text-slate-900 text-right tabular-nums text-sm whitespace-nowrap">
+                        {b.totalBalance.toLocaleString()} <span className="text-xs font-bold text-slate-500">{b.item.primaryUom}</span>
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>
+        </div>
+
+        {/* Dataset Table Footer */}
+        <div className="px-4 py-2.5 bg-slate-50/80 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-500 gap-2">
+          <div>
+            Showing <span className="font-semibold text-slate-700">{filteredBalances.length}</span> of <span className="font-semibold text-slate-700">{balances.length}</span> items
+            {searchTerm && (
+              <button
+                onClick={() => setSearchTerm('')}
+                className="ml-2 font-medium text-indigo-600 hover:underline cursor-pointer"
+              >
+                (Clear filter)
+              </button>
+            )}
+          </div>
+          <div className="flex items-center gap-1.5 text-[11px] font-medium text-slate-400">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+            <span>Telemetry & Ledger Synchronized</span>
+          </div>
         </div>
       </div>
     </div>
