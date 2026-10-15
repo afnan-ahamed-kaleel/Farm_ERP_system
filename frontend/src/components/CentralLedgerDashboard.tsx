@@ -1,9 +1,8 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import axios from 'axios';
 import { 
   PackageOpen, 
-  Bird, 
   Wheat, 
   Egg, 
   Boxes, 
@@ -12,48 +11,10 @@ import {
   RefreshCw, 
   Layers 
 } from 'lucide-react';
+import { useSpringCounter } from '../hooks/useSpringCounter';
 
 const API_INVENTORY = 'http://localhost:3000/api/v1/inventory';
-const API_BIRDS = 'http://localhost:3000/api/v1/bird-tracking';
 
-// 60fps High-Performance Spring Counter Hook
-function useSpringCounter(targetValue: number, duration: number = 800) {
-  const [displayValue, setDisplayValue] = useState(0);
-  const startValueRef = useRef(0);
-  const startTimeRef = useRef<number | null>(null);
-  const targetRef = useRef(targetValue);
-
-  useEffect(() => {
-    startValueRef.current = displayValue;
-    targetRef.current = targetValue;
-    startTimeRef.current = null;
-
-    let animationFrameId: number;
-
-    const animate = (timestamp: number) => {
-      if (!startTimeRef.current) startTimeRef.current = timestamp;
-      const elapsed = timestamp - startTimeRef.current;
-      const progress = Math.min(elapsed / duration, 1);
-
-      // 60fps cubic spring easing
-      const ease = 1 - Math.pow(1 - progress, 3);
-      const current = Math.round(startValueRef.current + (targetRef.current - startValueRef.current) * ease);
-
-      setDisplayValue(current);
-
-      if (progress < 1) {
-        animationFrameId = requestAnimationFrame(animate);
-      } else {
-        setDisplayValue(targetRef.current);
-      }
-    };
-
-    animationFrameId = requestAnimationFrame(animate);
-    return () => cancelAnimationFrame(animationFrameId);
-  }, [targetValue, duration]);
-
-  return displayValue;
-}
 
 // 60fps Interactive Spotlight KPI Card Component
 function KpiCard({ 
@@ -93,7 +54,7 @@ function KpiCard({
       onMouseMove={handleMouseMove}
       onMouseLeave={handleMouseLeave}
       onClick={onClick}
-      className={`group relative overflow-hidden rounded-2xl bg-white p-4 sm:p-5 shadow-xs transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] hover:-translate-y-1 hover:shadow-xl active:scale-[0.985] cursor-pointer select-none border ${
+      className={`group relative overflow-hidden rounded-2xl bg-white p-3 sm:px-4 sm:py-3 shadow-xs transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] hover:-translate-y-1 hover:shadow-lg active:scale-[0.985] cursor-pointer select-none border ${
         isActive 
           ? 'border-indigo-500 ring-2 ring-indigo-500/20 shadow-md' 
           : 'border-slate-200/90 hover:border-slate-300'
@@ -104,29 +65,29 @@ function KpiCard({
         className="pointer-events-none absolute -inset-px rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"
         style={{
           background: mousePos.isHovered
-            ? `radial-gradient(320px circle at ${mousePos.x}px ${mousePos.y}px, ${accentColor}, transparent 80%)`
+            ? `radial-gradient(280px circle at ${mousePos.x}px ${mousePos.y}px, ${accentColor}, transparent 80%)`
             : 'none',
         }}
       />
 
-      <div className="relative z-10 flex items-start justify-between gap-3">
+      <div className="relative z-10 flex items-start justify-between gap-2.5">
         <div>
-          <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">{title}</span>
-          <div className="mt-1 flex items-baseline gap-1.5">
-            <span className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight tabular-nums font-mono">
+          <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">{title}</span>
+          <div className="mt-0.5 flex items-baseline gap-1.5">
+            <span className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight tabular-nums font-mono">
               {animatedValue.toLocaleString()}
             </span>
-            {unit && <span className="text-xs sm:text-sm font-bold text-slate-500">{unit}</span>}
+            {unit && <span className="text-xs font-bold text-slate-500">{unit}</span>}
           </div>
         </div>
 
-        <div className={`w-11 h-11 rounded-xl ${iconBg} ${iconColor} flex items-center justify-center shadow-md transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-110 group-hover:rotate-3 shrink-0`}>
-          <Icon size={22} />
+        <div className={`w-9 h-9 rounded-xl ${iconBg} ${iconColor} flex items-center justify-center shadow-sm transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-110 group-hover:rotate-3 shrink-0`}>
+          <Icon size={18} />
         </div>
       </div>
 
-      <div className="relative z-10 mt-3 pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
-        <span className="text-slate-500 font-medium truncate max-w-[160px]">{subtitle}</span>
+      <div className="relative z-10 mt-2 pt-2 border-t border-slate-100 flex items-center justify-between text-xs">
+        <span className="text-slate-500 font-medium truncate max-w-[150px] text-[11px]">{subtitle}</span>
         <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${badge.bg} ${badge.text}`}>
           {badge.label}
         </span>
@@ -145,18 +106,11 @@ export default function CentralLedgerDashboard() {
     queryFn: async () => (await axios.get(`${API_INVENTORY}/balance`)).data,
   });
 
-  // 2. Bird Tracking Dashboard Stats Query
-  const { data: birdStats = { totalLiveBirds: 0, todayMortality: 0, activeFlocks: 0 }, refetch: refetchBirds, isFetching: isFetchingBirds } = useQuery({
-    queryKey: ['bird-dashboard-stats'],
-    queryFn: async () => (await axios.get(`${API_BIRDS}/stats/dashboard`)).data,
-  });
-
   const handleRefreshAll = () => {
     refetchBalances();
-    refetchBirds();
   };
 
-  const isRefreshing = isFetchingBalances || isFetchingBirds;
+  const isRefreshing = isFetchingBalances;
 
   // Category Totals Computation
   const feedTotal = balances
@@ -243,23 +197,9 @@ export default function CentralLedgerDashboard() {
         </div>
       </div>
 
-      {/* 2. 60fps Interactive Spotlight KPI Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-        {/* Card 1: Total Live Birds Population */}
-        <KpiCard
-          title="Live Bird Population"
-          value={birdStats.totalLiveBirds}
-          unit="Birds"
-          subtitle={`${birdStats.activeFlocks} Active Flocks in Sheds`}
-          badge={{ label: 'Live Telemetry', bg: 'bg-emerald-100', text: 'text-emerald-700' }}
-          icon={Bird}
-          iconBg="bg-emerald-500"
-          iconColor="text-white"
-          accentColor="rgba(16, 185, 129, 0.14)"
-          onClick={() => setSelectedCategory('ALL')}
-        />
-
-        {/* Card 2: Finished Feed in Silos */}
+      {/* 2. 60fps Interactive Spotlight KPI Grid — 3 inventory cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+        {/* Card 1: Finished Feed in Silos */}
         <KpiCard
           title="Finished Feed Stock"
           value={feedTotal}
@@ -274,7 +214,7 @@ export default function CentralLedgerDashboard() {
           onClick={() => setSelectedCategory(selectedCategory === 'FEED' ? 'ALL' : 'FEED')}
         />
 
-        {/* Card 3: Fresh Egg Stock */}
+        {/* Card 2: Fresh Egg Stock */}
         <KpiCard
           title="Fresh Egg Inventory"
           value={eggTotal}
@@ -289,7 +229,7 @@ export default function CentralLedgerDashboard() {
           onClick={() => setSelectedCategory(selectedCategory === 'EGG' ? 'ALL' : 'EGG')}
         />
 
-        {/* Card 4: Raw Material Stock */}
+        {/* Card 3: Raw Material Stock */}
         <KpiCard
           title="Raw Materials Stock"
           value={rawTotal}
@@ -305,224 +245,221 @@ export default function CentralLedgerDashboard() {
         />
       </div>
 
-      {/* 3. Category Filter Strip with 60fps Active Indicator */}
-      <div className="bg-white rounded-xl shadow-xs border border-slate-200/90 p-2 sm:p-2.5 flex flex-wrap items-center justify-between gap-2">
-        <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
-          <span className="text-xs font-bold text-slate-500 uppercase tracking-wider px-2 hidden sm:inline-block">Filter:</span>
-          {[
-            { id: 'ALL', label: 'All Items', count: balances.length },
-            { id: 'FEED', label: 'Finished Feed', count: feedCount },
-            { id: 'RAW_MATERIAL', label: 'Raw Materials', count: rawCount },
-            { id: 'EGG', label: 'Eggs', count: eggCount },
-            { id: 'PACKAGING', label: 'Packaging', count: packCount },
-          ].map((tab) => {
-            const isActive = selectedCategory === tab.id;
-            return (
-              <button
-                key={tab.id}
-                onClick={() => setSelectedCategory(tab.id)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-200 cursor-pointer ${
-                  isActive
-                    ? 'bg-indigo-600 text-white shadow-sm font-bold'
-                    : 'bg-slate-50 hover:bg-slate-100 text-slate-600 border border-slate-200/80'
-                }`}
-              >
-                <span>{tab.label}</span>
-                <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
-                  isActive ? 'bg-indigo-700/80 text-white' : 'bg-slate-200 text-slate-600'
-                }`}>
-                  {tab.count}
-                </span>
-              </button>
-            );
-          })}
-        </div>
-
-        {selectedCategory !== 'ALL' && (
-          <button
-            onClick={() => setSelectedCategory('ALL')}
-            className="text-xs font-semibold text-indigo-600 hover:text-indigo-700 px-2 cursor-pointer"
-          >
-            Reset filter
-          </button>
-        )}
-      </div>
-
-      {/* 4. Dataset Table Container */}
+      {/* 3. Dataset Table Container (filter tabs merged inside toolbar) */}
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex flex-col">
-        {/* Dataset Table Toolbar */}
-        <div className="px-4 py-3 bg-white border-b border-slate-200 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
-          <div className="flex items-center gap-2.5">
-            <div className="flex items-center gap-2">
-              <Layers size={17} className="text-indigo-600" />
-              <h2 className="text-sm sm:text-base font-bold text-slate-800">
-                {selectedCategory === 'ALL' ? 'Complete Inventory' : `${selectedCategory} Inventory`} Dataset
-              </h2>
-            </div>
-            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-600 border border-slate-200">
-              {filteredBalances.length} of {balances.length} items
+        {/* Dataset Table Toolbar — Single row: [Icon+Title+Count] [FilterPills] [Search+Refresh] */}
+        <div className="px-4 py-2.5 bg-white border-b border-slate-200 flex flex-wrap items-center gap-x-4 gap-y-2.5">
+          {/* Left: Icon + Title + Count badge */}
+          <div className="flex items-center gap-2 shrink-0">
+            <Layers size={16} className="text-indigo-600 shrink-0" />
+            <h2 className="text-sm font-bold text-slate-800 whitespace-nowrap">
+              {selectedCategory === 'ALL' ? 'Complete Inventory' : `${selectedCategory} Inventory`} Dataset
+            </h2>
+            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-slate-100 text-slate-600 border border-slate-200 shrink-0">
+              {filteredBalances.length}/{balances.length}
             </span>
           </div>
 
-          {/* Integrated Search Box in Dataset Header */}
-          <div className="flex items-center gap-2">
-            <div className="relative w-full sm:w-64">
+          {/* Center: Category Filter Pills with generous spacing */}
+          <div className="flex flex-wrap items-center gap-2 sm:gap-2.5 flex-1 min-w-0">
+            {[
+              { id: 'ALL', label: 'All', count: balances.length },
+              { id: 'FEED', label: 'Feed', count: feedCount },
+              { id: 'RAW_MATERIAL', label: 'Raw Mat.', count: rawCount },
+              { id: 'EGG', label: 'Eggs', count: eggCount },
+              { id: 'PACKAGING', label: 'Packaging', count: packCount },
+            ].map((tab) => {
+              const isActive = selectedCategory === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => setSelectedCategory(tab.id)}
+                  className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1 rounded-lg text-xs font-semibold transition-all duration-200 cursor-pointer whitespace-nowrap ${
+                    isActive
+                      ? 'bg-indigo-600 text-white shadow-sm ring-2 ring-indigo-500/20'
+                      : 'bg-slate-100 hover:bg-slate-200 text-slate-600 border border-slate-200'
+                  }`}
+                >
+                  {tab.label}
+                  <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
+                    isActive ? 'bg-indigo-500 text-white' : 'bg-slate-200 text-slate-600'
+                  }`}>
+                    {tab.count}
+                  </span>
+                </button>
+              );
+            })}
+            {selectedCategory !== 'ALL' && (
+              <button
+                onClick={() => setSelectedCategory('ALL')}
+                className="text-xs font-bold text-indigo-600 hover:text-indigo-800 cursor-pointer px-1.5 py-0.5 hover:underline"
+              >
+                Reset
+              </button>
+            )}
+          </div>
+
+          {/* Right: Search + Refresh */}
+          <div className="flex items-center gap-2 shrink-0 ml-auto">
+            <div className="relative w-52 sm:w-60">
               <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
               <input
                 type="text"
-                placeholder="Search code, name, category..."
+                placeholder="Search catalog or code..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-8.5 pr-8 py-1.5 text-xs sm:text-sm bg-slate-50 hover:bg-slate-100/60 focus:bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 font-medium text-slate-800 transition-all placeholder:text-slate-400"
+                className="w-full pl-9 pr-8 py-1.5 text-xs bg-slate-50 hover:bg-slate-100/60 focus:bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 font-medium text-slate-800 transition-all placeholder:text-slate-400"
               />
               {searchTerm && (
                 <button
                   onClick={() => setSearchTerm('')}
                   className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5 rounded cursor-pointer"
-                  title="Clear search"
                 >
-                  <X size={14} />
+                  <X size={13} />
                 </button>
               )}
             </div>
-
             <button
               onClick={handleRefreshAll}
               className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50/50 transition-colors shrink-0 cursor-pointer"
-              title="Refresh ledger table"
+              title="Refresh"
             >
-              <RefreshCw size={14} className={isRefreshing ? 'animate-spin' : ''} />
+              <RefreshCw size={13} className={isRefreshing ? 'animate-spin' : ''} />
             </button>
           </div>
         </div>
 
-        {/* Mobile View: High-Density Slots */}
-        <div className="block md:hidden p-3 space-y-2.5">
-          {loadingBalances ? (
-            <div className="p-8 text-center text-slate-400 text-sm font-semibold animate-pulse">
-              Loading dynamic balances...
-            </div>
-          ) : filteredBalances.length === 0 ? (
-            <div className="p-8 text-center text-slate-400 text-sm">
-              {searchTerm ? (
-                <div>
-                  <p className="font-semibold text-slate-600">No items matching "{searchTerm}" found.</p>
-                  <button onClick={() => setSearchTerm('')} className="mt-1.5 text-xs font-bold text-indigo-600 underline">
-                    Clear search
-                  </button>
-                </div>
-              ) : (
-                <p>No stock records found in the ledger.</p>
-              )}
-            </div>
-          ) : (
-            filteredBalances.map((b: any) => {
-              const status = getStockStatus(b.totalBalance);
-              return (
-                <div 
-                  key={b.item.id} 
-                  className="p-3 rounded-xl border border-slate-200/90 bg-slate-50/60 shadow-xs flex items-center justify-between gap-3 hover:bg-slate-50 transition-colors"
-                >
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-1.5">
-                      <span className="font-mono text-[10px] font-bold text-slate-500 bg-white px-1.5 py-0.5 rounded border border-slate-200">
-                        {b.item.code}
-                      </span>
-                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${getCategoryBadgeClass(b.item.category)}`}>
-                        {b.item.category}
-                      </span>
-                    </div>
-                    <p className="mt-1 font-bold text-slate-800 text-sm truncate">{b.item.name}</p>
+        {/* Mobile View: High-Density Slots — scrollable inside the card */}
+        <div className="block md:hidden overflow-y-auto" style={{ maxHeight: '400px' }}>
+          <div className="p-3 space-y-2.5">
+            {loadingBalances ? (
+              <div className="p-8 text-center text-slate-400 text-sm font-semibold animate-pulse">
+                Loading dynamic balances...
+              </div>
+            ) : filteredBalances.length === 0 ? (
+              <div className="p-8 text-center text-slate-400 text-sm">
+                {searchTerm ? (
+                  <div>
+                    <p className="font-semibold text-slate-600">No items matching "{searchTerm}" found.</p>
+                    <button onClick={() => setSearchTerm('')} className="mt-1.5 text-xs font-bold text-indigo-600 underline">
+                      Clear search
+                    </button>
                   </div>
-                  <div className="text-right shrink-0">
-                    <span className={`px-1.5 py-0.2 rounded text-[10px] font-bold border ${status.bg}`}>
-                      {status.label}
-                    </span>
-                    <p className="mt-0.5 text-sm font-black text-slate-900 tabular-nums">
-                      {b.totalBalance.toLocaleString()} <span className="text-xs font-bold text-slate-500">{b.item.primaryUom}</span>
-                    </p>
-                  </div>
-                </div>
-              );
-            })
-          )}
-        </div>
-
-        {/* Desktop View: Full Dataset Table */}
-        <div className="hidden md:block overflow-x-auto">
-          <table className="w-full text-left text-sm">
-            <thead className="bg-slate-50 text-slate-600 font-bold border-b border-slate-200 text-xs uppercase tracking-wider">
-              <tr>
-                <th className="py-2.5 px-6">Item Code</th>
-                <th className="py-2.5 px-6">Item Catalog Name</th>
-                <th className="py-2.5 px-6">Category</th>
-                <th className="py-2.5 px-6">Stock Status</th>
-                <th className="py-2.5 px-6 text-right">Calculated Balance</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {loadingBalances ? (
-                <tr>
-                  <td colSpan={5} className="py-12 text-center text-slate-400 font-medium">
-                    <div className="flex items-center justify-center gap-2">
-                      <RefreshCw size={16} className="animate-spin text-indigo-600" />
-                      <span>Loading dynamic ledger balances...</span>
-                    </div>
-                  </td>
-                </tr>
-              ) : filteredBalances.length === 0 ? (
-                <tr>
-                  <td colSpan={5} className="py-12 text-center text-slate-400">
-                    {searchTerm ? (
-                      <div className="flex flex-col items-center justify-center space-y-1.5">
-                        <p className="text-slate-600 font-medium text-sm">
-                          No items matching "<span className="text-slate-800 font-bold">{searchTerm}</span>" found.
-                        </p>
-                        <button
-                          onClick={() => setSearchTerm('')}
-                          className="text-xs text-indigo-600 hover:text-indigo-700 font-bold underline cursor-pointer"
-                        >
-                          Clear search filter
-                        </button>
-                      </div>
-                    ) : (
-                      <p className="text-sm">No stock items found in this category.</p>
-                    )}
-                  </td>
-                </tr>
-              ) : (
-                filteredBalances.map((b: any) => {
-                  const status = getStockStatus(b.totalBalance);
-                  return (
-                    <tr 
-                      key={b.item.id} 
-                      className="hover:bg-slate-50/80 transition-colors duration-150"
-                    >
-                      <td className="py-3 px-6 font-mono text-xs font-bold text-indigo-700">
-                        {b.item.code}
-                      </td>
-                      <td className="py-3 px-6 font-bold text-slate-800 text-sm">
-                        {b.item.name}
-                      </td>
-                      <td className="py-3 px-6">
-                        <span className={`px-2.5 py-0.5 rounded-md text-xs font-bold border ${getCategoryBadgeClass(b.item.category)}`}>
+                ) : (
+                  <p>No stock records found in the ledger.</p>
+                )}
+              </div>
+            ) : (
+              filteredBalances.map((b: any) => {
+                const status = getStockStatus(b.totalBalance);
+                return (
+                  <div 
+                    key={b.item.id} 
+                    className="p-3 rounded-xl border border-slate-200/90 bg-slate-50/60 shadow-xs flex items-center justify-between gap-3 hover:bg-slate-50 transition-colors"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-mono text-[10px] font-bold text-slate-500 bg-white px-1.5 py-0.5 rounded border border-slate-200">
+                          {b.item.code}
+                        </span>
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${getCategoryBadgeClass(b.item.category)}`}>
                           {b.item.category}
                         </span>
-                      </td>
-                      <td className="py-3 px-6">
-                        <span className={`px-2 py-0.5 rounded-md text-xs font-bold border ${status.bg}`}>
-                          {status.label}
-                        </span>
-                      </td>
-                      <td className="py-3 px-6 font-black text-slate-900 text-right tabular-nums text-sm whitespace-nowrap">
+                      </div>
+                      <p className="mt-1 font-bold text-slate-800 text-sm truncate">{b.item.name}</p>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold border ${status.bg}`}>
+                        {status.label}
+                      </span>
+                      <p className="mt-0.5 text-sm font-black text-slate-900 tabular-nums">
                         {b.totalBalance.toLocaleString()} <span className="text-xs font-bold text-slate-500">{b.item.primaryUom}</span>
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
+                      </p>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </div>
+
+        {/* Desktop View: Full Dataset Table — rows scroll inside, page stays still */}
+        <div className="hidden md:flex md:flex-col overflow-hidden" style={{ maxHeight: 'calc(100vh - 315px)', minHeight: '300px' }}>
+          <div className="overflow-y-auto overflow-x-auto flex-1">
+            <table className="w-full text-left text-sm">
+              <thead className="bg-slate-50 text-slate-600 font-bold border-b border-slate-200 text-xs uppercase tracking-wider sticky top-0 z-10">
+                <tr>
+                  <th className="py-2.5 px-6 whitespace-nowrap">Item Code</th>
+                  <th className="py-2.5 px-6 whitespace-nowrap">Item Catalog Name</th>
+                  <th className="py-2.5 px-6 whitespace-nowrap">Category</th>
+                  <th className="py-2.5 px-6 whitespace-nowrap">Stock Status</th>
+                  <th className="py-2.5 px-6 text-right whitespace-nowrap">Calculated Balance</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {loadingBalances ? (
+                  <tr>
+                    <td colSpan={5} className="py-12 text-center text-slate-400 font-medium">
+                      <div className="flex items-center justify-center gap-2">
+                        <RefreshCw size={16} className="animate-spin text-indigo-600" />
+                        <span>Loading dynamic ledger balances...</span>
+                      </div>
+                    </td>
+                  </tr>
+                ) : filteredBalances.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="py-12 text-center text-slate-400">
+                      {searchTerm ? (
+                        <div className="flex flex-col items-center justify-center space-y-1.5">
+                          <p className="text-slate-600 font-medium text-sm">
+                            No items matching "<span className="text-slate-800 font-bold">{searchTerm}</span>" found.
+                          </p>
+                          <button
+                            onClick={() => setSearchTerm('')}
+                            className="text-xs text-indigo-600 hover:text-indigo-700 font-bold underline cursor-pointer"
+                          >
+                            Clear search filter
+                          </button>
+                        </div>
+                      ) : (
+                        <p className="text-sm">No stock items found in this category.</p>
+                      )}
+                    </td>
+                  </tr>
+                ) : (
+                  filteredBalances.map((b: any) => {
+                    const status = getStockStatus(b.totalBalance);
+                    return (
+                      <tr 
+                        key={b.item.id} 
+                        className="hover:bg-indigo-50/30 transition-colors duration-150"
+                      >
+                        <td className="py-3 px-6 font-mono text-xs font-bold text-indigo-700 whitespace-nowrap">
+                          {b.item.code}
+                        </td>
+                        <td className="py-3 px-6 font-bold text-slate-800 text-sm">
+                          {b.item.name}
+                        </td>
+                        <td className="py-3 px-6">
+                          <span className={`px-2.5 py-0.5 rounded-md text-xs font-bold border ${getCategoryBadgeClass(b.item.category)}`}>
+                            {b.item.category}
+                          </span>
+                        </td>
+                        <td className="py-3 px-6">
+                          <span className={`px-2 py-0.5 rounded-md text-xs font-bold border ${status.bg}`}>
+                            {status.label}
+                          </span>
+                        </td>
+                        <td className="py-3 px-6 font-black text-slate-900 text-right tabular-nums text-sm whitespace-nowrap">
+                          {b.totalBalance.toLocaleString()} <span className="text-xs font-bold text-slate-500">{b.item.primaryUom}</span>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
 
         {/* Dataset Table Footer */}

@@ -3,6 +3,7 @@ import { Egg, Save, Plus, Minus, ChevronDown } from 'lucide-react';
 import Swal from 'sweetalert2';
 import axios from 'axios';
 import { useMutation, useQuery } from '@tanstack/react-query';
+import { useSpringCounter } from '../hooks/useSpringCounter';
 
 const API_BASE_EGGS = 'http://localhost:3000/api/v1/eggs';
 const API_BASE_TRACKING = 'http://localhost:3000/api/v1/bird-tracking';
@@ -64,6 +65,7 @@ export default function DailyEggProductionScreen() {
 
   const gradeTotal = (g: Grade) => CONDITIONS.reduce((s, c) => s + matrix[g][c], 0);
   const grandTotal = GRADES.reduce((s, g) => s + gradeTotal(g), 0);
+  const animatedGrandTotal = useSpringCounter(grandTotal, 600);
 
   const mutation = useMutation({
     mutationFn: async (payload: any) => axios.post(`${API_BASE_EGGS}/daily-collection`, payload),
@@ -105,7 +107,7 @@ export default function DailyEggProductionScreen() {
         <div className="relative z-10 flex flex-row sm:flex-col items-center sm:items-end justify-between w-full sm:w-auto bg-gradient-to-r from-violet-600 via-purple-600 to-pink-600 border border-white/25 rounded-xl px-4 sm:px-5 py-2 shadow-lg shadow-black/20">
            <p className="text-[10px] font-extrabold uppercase tracking-widest text-purple-100 sm:mb-0.5">Total Yield</p>
            <div className="flex items-baseline space-x-1.5">
-             <span className="text-2xl sm:text-3xl font-black text-white tabular-nums leading-none drop-shadow-sm">{grandTotal.toLocaleString()}</span>
+             <span className="text-2xl sm:text-3xl font-black text-white tabular-nums leading-none drop-shadow-sm">{animatedGrandTotal.toLocaleString()}</span>
              <span className="text-xs font-bold text-purple-100">eggs</span>
            </div>
         </div>

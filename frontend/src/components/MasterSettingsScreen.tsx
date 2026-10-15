@@ -17,6 +17,13 @@ import {
 import { useQuery } from '@tanstack/react-query';
 import axios from 'axios';
 import Swal from 'sweetalert2';
+import { useSpringCounter } from '../hooks/useSpringCounter';
+
+/** Tiny inline component so each tab badge gets its own spring animation */
+function AnimatedCount({ value }: { value: number }) {
+  const n = useSpringCounter(value, 700);
+  return <>{n}</>;
+}
 
 const API_BASE = 'http://localhost:3000/api/v1/master-data';
 
@@ -209,7 +216,7 @@ export default function MasterSettingsScreen() {
                 <span className={`px-1.5 py-0.2 rounded-full text-[11px] font-bold ${
                   isActive ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-700/90 text-slate-300'
                 }`}>
-                  {tab.total}
+                  <AnimatedCount value={tab.total} />
                 </span>
               </button>
             );
@@ -243,7 +250,7 @@ export default function MasterSettingsScreen() {
                 placeholder={`Search in ${currentTab.shortTitle}...`}
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-8.5 pr-8 py-1.5 text-xs sm:text-sm bg-slate-50 hover:bg-slate-100/60 focus:bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 font-medium text-slate-800 transition-all placeholder:text-slate-400"
+                className="w-full pl-9 pr-8 py-1.5 text-xs sm:text-sm bg-slate-50 hover:bg-slate-100/60 focus:bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 font-medium text-slate-800 transition-all placeholder:text-slate-400"
               />
               {searchTerm && (
                 <button
